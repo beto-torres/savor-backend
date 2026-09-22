@@ -10,7 +10,37 @@ const esquemaEntrada = z.object({
   senha: z.string().min(1),
 });
 
+const esquemaRecuperacaoSenha = z.object({
+  cpf: z.string().transform((value) => value.replace(/\D/g, "")).pipe(z.string().length(11)),
+  novaSenha: z.string().min(6).max(72),
+});
+
 export const rotasAutenticacao = Router();
+
+rotasAutenticacao.post("/recuperar-senha", async (requisicao, resposta) => {
+  const validacao = esquemaRecuperacaoSenha.safeParse(requisicao.body);
+  if (!validacao.success) {
+    resposta.status(400).json({ erro: "Informe um CPF válido e uma senha de 6 a 72 caracteres." });
+    return;
+  }
+
+  const senhaHash = await bcrypt.hash(validacao.data.novaSenha, 10);
+  const usuario = await pool.query<{ id: string }>("SELECT id FROM usuarios WHERE cpf = $1", [validacao.data.cpf]);
+
+  if (usuario.rows[0]) {
+    await pool.query(
+      `INSERT INTO solicitacoes_recuperacao_senha (usuario_id, senha_hash)
+       VALUES ($1, $2)
+       ON CONFLICT (usuario_id) DO UPDATE
+       SET senha_hash = EXCLUDED.senha_hash, solicitado_em = NOW()`,
+      [usuario.rows[0].id, senhaHash],
+    );
+  }
+
+  resposta.status(202).json({
+    mensagem: "Se o CPF estiver cadastrado, a solicitação será enviada para aprovação de um administrador.",
+  });
+});
 
 rotasAutenticacao.post("/entrar", async (requisicao, resposta) => {
   const validacao = esquemaEntrada.safeParse(requisicao.body);

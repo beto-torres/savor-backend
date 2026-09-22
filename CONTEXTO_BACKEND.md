@@ -4,6 +4,14 @@ Este arquivo registra o contexto, as decisões de arquitetura e o histórico de 
 
 ## Historico de prompts
 
+### 2026-09-22 - Carregamento direto de imagens do Google Drive
+
+- Pedido: corrigir um link público do Google Drive que falhava quando incorporado nas refeições.
+- Arquivo alterado: `src/lib/imagem.ts` e contexto compartilhado.
+- Decisão: normalizar links do Drive para o endereço direto `lh3.googleusercontent.com`, evitando o redirecionamento do endpoint de miniaturas; URLs antigas já salvas continuam sendo reconhecidas pelo parâmetro `id`.
+- Validação: `npm run typecheck` concluído sem erros; o frontend confirmou no navegador o carregamento da imagem problemática em 1254 × 1254 px pelo endereço direto.
+- Pendências: nenhuma.
+
 | Ordem | Prompt | Resultado |
 | --- | --- | --- |
 | 1 | `criar o backend Node.js de acordo com o frontend, usando PostgreSQL e Docker` | API Express em TypeScript com autenticação JWT, PostgreSQL conteinerizado e migrações iniciais. |
@@ -70,6 +78,14 @@ docker compose cp postgres:/tmp/database_backup.sql backups/database_backup.sql
 > A restauração no modo `--clean` apagará os dados correntes das tabelas antes de reinserir os registros do backup.
 
 ## Historico de trabalho
+
+### 2026-09-22 - Links compartilhados do Google Drive nas imagens
+
+- Pedido: aceitar links compartilhados do Google Drive além de URLs diretas para imagens das refeições.
+- Arquivos alterados: `src/lib/imagem.ts`, rota de refeições e contexto compartilhado.
+- Decisão: normalizar links do Drive para uma URL de imagem antes de persistir; outras URLs HTTPS continuam inalteradas.
+- Validacao: `npm run build` concluido sem erros; conversao conferida com o link fornecido e com uma URL direta.
+- Pendências: nenhuma.
 
 ### 2026-08-03 - Criacao inicial da API Node.js com PostgreSQL e Docker
 
@@ -189,3 +205,19 @@ docker compose cp postgres:/tmp/database_backup.sql backups/database_backup.sql
 ## Manutencao
 
 Antes de alterar o projeto, leia este arquivo. Ao criar, editar ou remover arquivos, acrescente um resumo objetivo ao historico, preservando os registros anteriores e sem incluir dados sensiveis.
+
+### 2026-09-21 - Imagem HTTPS opcional nas refeições
+
+- Pedido: permitir uma imagem opcional por refeição em todas as rotas de gestão e cardápio.
+- Arquivos afetados: migration `009_adicionar_imagem_url_refeicoes.sql`, rotas `refeicoes.ts` e `cardapios.ts`, README, backup e este arquivo.
+- Decisões: `imagem_url` aceita `NULL` ou URL iniciada por `https://`, com limite de 2048 caracteres e restrição também no PostgreSQL; string vazia é normalizada para `NULL`.
+- Validações: typecheck e build; migration aplicada no Docker; criação sem imagem, rejeição de HTTP, atualização HTTPS, remoção da imagem, retorno no GET e limpeza do registro temporário.
+- Pendências: nenhuma funcional.
+
+### 2026-09-21 - Recuperação de senha com aprovação administrativa
+
+- Pedido: permitir recuperação de senha, exigindo ativação exclusiva por administrador.
+- Arquivos afetados: migration `010_solicitacoes_recuperacao_senha.sql`, rotas de autenticação e usuários, README, backup e este arquivo.
+- Decisões: a solicitação pública armazena somente o hash da senha desejada e devolve resposta neutra; a senha vigente continua funcionando até a aprovação; somente administradores podem listar, ativar ou rejeitar solicitações.
+- Validações: solicitação `202`; senha nova rejeitada antes da aprovação e aceita depois; senha anterior invalidada na ativação; rejeição preserva a senha vigente; usuário temporário removido.
+- Pendências: nenhuma funcional.

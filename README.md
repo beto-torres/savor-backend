@@ -33,12 +33,16 @@ docker compose down -v
 | --- | --- | --- | --- |
 | GET | `/health` | Não | Estado da API |
 | POST | `/api/autenticacao/entrar` | Não | Identifica o usuário e cria uma sessão |
+| POST | `/api/autenticacao/recuperar-senha` | Não | Solicita uma nova senha para aprovação administrativa |
 | GET | `/api/cardapios/hoje` | Não | Cardápio de hoje |
 | GET | `/api/cardapios/proximo` | Não | Próximo dia letivo |
 | GET | `/api/refeicoes?data=2026-08-10&periodo=almoco&nome=frango` | Administrador ou cozinha | Lista e filtra refeições para gestão |
 | POST | `/api/refeicoes` | Administrador ou cozinha | Cadastra uma refeição |
 | PUT | `/api/refeicoes/:id` | Administrador ou cozinha | Atualiza uma refeição |
 | DELETE | `/api/refeicoes/:id` | Administrador ou cozinha | Exclui uma refeição sem avaliações |
+| GET | `/api/usuarios/recuperacoes-senha` | Administrador | Lista recuperações de senha pendentes |
+| POST | `/api/usuarios/recuperacoes-senha/:id/ativar` | Administrador | Ativa a nova senha solicitada |
+| DELETE | `/api/usuarios/recuperacoes-senha/:id` | Administrador | Rejeita a recuperação solicitada |
 | POST | `/api/avaliacoes` | Aluno | Envia uma avaliação |
 | GET | `/api/avaliacoes/minhas` | Aluno | Lista avaliações do usuário |
 | GET | `/api/avaliacoes` | Administrador | Lista e filtra todas as avaliações |
@@ -69,6 +73,10 @@ docker compose down -v
 
 Use no cabeçalho: `Authorization: Bearer <token>`.
 
+### Recuperação de senha
+
+O usuário solicita uma nova senha informando CPF e senha desejada. A API sempre devolve uma resposta neutra para não revelar CPFs cadastrados. A senha atual permanece válida durante a análise, e a nova senha é armazenada somente como hash. Apenas um administrador pode ativá-la ou rejeitar a solicitação pela gestão de usuários.
+
 ### Refeição
 
 As refeições são identificadas pelo período. O cadastro e a edição recebem somente:
@@ -78,12 +86,14 @@ As refeições são identificadas pelo período. O cadastro e a edição recebem
   "data": "2026-08-10",
   "periodo": "manha",
   "nome": "Cuscuz com ovos",
-  "descricao": "Uma pausa leve para começar bem o turno."
+  "descricao": "Uma pausa leve para começar bem o turno.",
+  "imagemUrl": "https://exemplo.com/cuscuz-com-ovos.jpg"
 }
 ```
 
 Os períodos aceitos são `manha`, `almoco` e `tarde`.
 Os horários não são armazenados no banco: `manha` é sempre 10h, `almoco` é sempre 12h e `tarde` é sempre 15h.
+`imagemUrl` é opcional, aceita somente endereços HTTPS com até 2048 caracteres e pode ser removida enviando uma string vazia. URLs diretas são preservadas; links compartilhados do Google Drive são convertidos automaticamente para exibição da imagem. O arquivo do Drive precisa estar liberado para qualquer pessoa com o link.
 
 ## Modelo de usuário
 

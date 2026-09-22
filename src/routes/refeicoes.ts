@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { pool } from "../database/pool.js";
 import { exigirAutenticacao, exigirTipos } from "../middleware/autenticacao.js";
+import { normalizarUrlImagem } from "../lib/imagem.js";
 
 const esquemaData = z.preprocess((valor) => {
   if (typeof valor !== "string") return valor;
@@ -17,6 +18,14 @@ const esquemaRefeicao = z.object({
   periodo: z.enum(["manha", "almoco", "tarde"]),
   nome: z.string().trim().min(2).max(120),
   descricao: z.string().trim().min(3).max(500),
+  imagemUrl: z.string().trim().max(2048).refine((valor) => {
+    if (valor === "") return true;
+    try {
+      return new URL(valor).protocol === "https:";
+    } catch {
+      return false;
+    }
+  }, "Informe uma URL HTTPS válida.").optional(),
 });
 
 const esquemaId = z.coerce.number().int().positive();
@@ -31,7 +40,7 @@ const esquemaFiltros = z.object({
 const selecaoRefeicoes = `
   SELECT id, data::text AS data, periodo, nome,
          CASE periodo WHEN 'manha' THEN '10:00' WHEN 'almoco' THEN '12:00' ELSE '15:00' END AS "horarioServico",
-         descricao
+         descricao, imagem_url AS "imagemUrl"
   FROM refeicoes
 `;
 
@@ -44,6 +53,7 @@ function mensagemValidacaoRefeicao(erro: z.ZodError) {
     periodo: "Selecione um período válido.",
     nome: "O nome deve ter entre 2 e 120 caracteres.",
     descricao: "A descrição deve ter entre 3 e 500 caracteres.",
+    imagemUrl: "Informe uma URL HTTPS válida com até 2048 caracteres.",
   };
   return typeof campo === "string" ? mensagens[campo] ?? "Dados da refeição inválidos." : "Dados da refeição inválidos.";
 }
@@ -106,13 +116,14 @@ rotasRefeicoes.post("/", async (requisicao, resposta) => {
   }
 
   try {
+    const imagemUrl = normalizarUrlImagem(validacao.data.imagemUrl);
     const resultado = await pool.query(
-      `INSERT INTO refeicoes (data, periodo, nome, descricao)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO refeicoes (data, periodo, nome, descricao, imagem_url)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING id, data::text AS data, periodo, nome,
                  CASE periodo WHEN 'manha' THEN '10:00' WHEN 'almoco' THEN '12:00' ELSE '15:00' END AS "horarioServico",
-                 descricao`,
-      [validacao.data.data, validacao.data.periodo, validacao.data.nome, validacao.data.descricao],
+                 descricao, imagem_url AS "imagemUrl"`,
+      [validacao.data.data, validacao.data.periodo, validacao.data.nome, validacao.data.descricao, imagemUrl],
     );
     resposta.status(201).json(resultado.rows[0]);
   } catch (erro) {
@@ -134,14 +145,15 @@ rotasRefeicoes.put("/:id", async (requisicao, resposta) => {
   }
 
   try {
+    const imagemUrl = normalizarUrlImagem(validacao.data.imagemUrl);
     const resultado = await pool.query(
       `UPDATE refeicoes
-       SET data = $1, periodo = $2, nome = $3, descricao = $4
-       WHERE id = $5
+       SET data = $1, periodo = $2, nome = $3, descricao = $4, imagem_url = $5
+       WHERE id = $6
        RETURNING id, data::text AS data, periodo, nome,
                  CASE periodo WHEN 'manha' THEN '10:00' WHEN 'almoco' THEN '12:00' ELSE '15:00' END AS "horarioServico",
-                 descricao`,
-      [validacao.data.data, validacao.data.periodo, validacao.data.nome, validacao.data.descricao, idValidado.data],
+                 descricao, imagem_url AS "imagemUrl"`,
+      [validacao.data.data, validacao.data.periodo, validacao.data.nome, validacao.data.descricao, imagemUrl, idValidado.data],
     );
 
     if (!resultado.rows[0]) {

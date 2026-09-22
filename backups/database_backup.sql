@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict a3UOdNcl2eAxrU84ehmOIv1DJwtPvkefoiazj3OrmMnfPuR31wgxwt1mMBbvH9D
+\restrict pByXTTAybcbHHvmkJA6pCtZa3hfZEahGweAHm3czhFjBaxqHlcIQX3dXt5v4rCk
 
 -- Dumped from database version 17.11
 -- Dumped by pg_dump version 17.11
@@ -19,9 +19,11 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+ALTER TABLE IF EXISTS ONLY public.solicitacoes_recuperacao_senha DROP CONSTRAINT IF EXISTS solicitacoes_recuperacao_senha_usuario_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.avaliacoes DROP CONSTRAINT IF EXISTS avaliacoes_usuario_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.avaliacoes DROP CONSTRAINT IF EXISTS avaliacoes_refeicao_id_fkey;
 DROP INDEX IF EXISTS public.usuarios_email_unico_idx;
+DROP INDEX IF EXISTS public.solicitacoes_recuperacao_senha_data_idx;
 DROP INDEX IF EXISTS public.refeicoes_nome_idx;
 DROP INDEX IF EXISTS public.refeicoes_data_idx;
 DROP INDEX IF EXISTS public.avaliacoes_usuario_id_idx;
@@ -29,6 +31,8 @@ DROP INDEX IF EXISTS public.avaliacoes_servido_em_idx;
 ALTER TABLE IF EXISTS ONLY public.usuarios DROP CONSTRAINT IF EXISTS usuarios_pkey;
 ALTER TABLE IF EXISTS ONLY public.usuarios DROP CONSTRAINT IF EXISTS usuarios_email_key;
 ALTER TABLE IF EXISTS ONLY public.usuarios DROP CONSTRAINT IF EXISTS usuarios_cpf_key;
+ALTER TABLE IF EXISTS ONLY public.solicitacoes_recuperacao_senha DROP CONSTRAINT IF EXISTS solicitacoes_recuperacao_senha_usuario_id_key;
+ALTER TABLE IF EXISTS ONLY public.solicitacoes_recuperacao_senha DROP CONSTRAINT IF EXISTS solicitacoes_recuperacao_senha_pkey;
 ALTER TABLE IF EXISTS ONLY public.schema_migrations DROP CONSTRAINT IF EXISTS schema_migrations_pkey;
 ALTER TABLE IF EXISTS ONLY public.refeicoes DROP CONSTRAINT IF EXISTS refeicoes_pkey;
 ALTER TABLE IF EXISTS ONLY public.refeicoes DROP CONSTRAINT IF EXISTS refeicoes_data_periodo_key;
@@ -36,6 +40,7 @@ ALTER TABLE IF EXISTS ONLY public.avaliacoes DROP CONSTRAINT IF EXISTS avaliacoe
 ALTER TABLE IF EXISTS ONLY public.avaliacoes DROP CONSTRAINT IF EXISTS avaliacoes_pkey;
 ALTER TABLE IF EXISTS public.refeicoes ALTER COLUMN id DROP DEFAULT;
 DROP TABLE IF EXISTS public.usuarios;
+DROP TABLE IF EXISTS public.solicitacoes_recuperacao_senha;
 DROP TABLE IF EXISTS public.schema_migrations;
 DROP SEQUENCE IF EXISTS public.refeicoes_id_seq;
 DROP TABLE IF EXISTS public.refeicoes;
@@ -51,14 +56,14 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner: 
+-- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner: -
 --
 
 COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
 
 
 --
--- Name: periodo_refeicao; Type: TYPE; Schema: public; Owner: cardapio
+-- Name: periodo_refeicao; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.periodo_refeicao AS ENUM (
@@ -68,10 +73,8 @@ CREATE TYPE public.periodo_refeicao AS ENUM (
 );
 
 
-ALTER TYPE public.periodo_refeicao OWNER TO cardapio;
-
 --
--- Name: tipo_usuario; Type: TYPE; Schema: public; Owner: cardapio
+-- Name: tipo_usuario; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.tipo_usuario AS ENUM (
@@ -81,14 +84,12 @@ CREATE TYPE public.tipo_usuario AS ENUM (
 );
 
 
-ALTER TYPE public.tipo_usuario OWNER TO cardapio;
-
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
 --
--- Name: avaliacoes; Type: TABLE; Schema: public; Owner: cardapio
+-- Name: avaliacoes; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.avaliacoes (
@@ -103,10 +104,8 @@ CREATE TABLE public.avaliacoes (
 );
 
 
-ALTER TABLE public.avaliacoes OWNER TO cardapio;
-
 --
--- Name: refeicoes; Type: TABLE; Schema: public; Owner: cardapio
+-- Name: refeicoes; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.refeicoes (
@@ -114,14 +113,14 @@ CREATE TABLE public.refeicoes (
     periodo public.periodo_refeicao NOT NULL,
     descricao text NOT NULL,
     data date NOT NULL,
-    nome character varying(120) NOT NULL
+    nome character varying(120) NOT NULL,
+    imagem_url character varying(2048),
+    CONSTRAINT refeicoes_imagem_url_valida CHECK (((imagem_url IS NULL) OR ((imagem_url)::text ~ '^https://'::text)))
 );
 
 
-ALTER TABLE public.refeicoes OWNER TO cardapio;
-
 --
--- Name: refeicoes_id_seq; Type: SEQUENCE; Schema: public; Owner: cardapio
+-- Name: refeicoes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.refeicoes_id_seq
@@ -133,17 +132,15 @@ CREATE SEQUENCE public.refeicoes_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.refeicoes_id_seq OWNER TO cardapio;
-
 --
--- Name: refeicoes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: cardapio
+-- Name: refeicoes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.refeicoes_id_seq OWNED BY public.refeicoes.id;
 
 
 --
--- Name: schema_migrations; Type: TABLE; Schema: public; Owner: cardapio
+-- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.schema_migrations (
@@ -152,10 +149,20 @@ CREATE TABLE public.schema_migrations (
 );
 
 
-ALTER TABLE public.schema_migrations OWNER TO cardapio;
+--
+-- Name: solicitacoes_recuperacao_senha; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.solicitacoes_recuperacao_senha (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    usuario_id uuid NOT NULL,
+    senha_hash text NOT NULL,
+    solicitado_em timestamp with time zone DEFAULT now() NOT NULL
+);
+
 
 --
--- Name: usuarios; Type: TABLE; Schema: public; Owner: cardapio
+-- Name: usuarios; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.usuarios (
@@ -171,17 +178,15 @@ CREATE TABLE public.usuarios (
 );
 
 
-ALTER TABLE public.usuarios OWNER TO cardapio;
-
 --
--- Name: refeicoes id; Type: DEFAULT; Schema: public; Owner: cardapio
+-- Name: refeicoes id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.refeicoes ALTER COLUMN id SET DEFAULT nextval('public.refeicoes_id_seq'::regclass);
 
 
 --
--- Data for Name: avaliacoes; Type: TABLE DATA; Schema: public; Owner: cardapio
+-- Data for Name: avaliacoes; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.avaliacoes (id, usuario_id, refeicao_id, servido_em, nota, comentario, criado_em) FROM stdin;
@@ -193,80 +198,80 @@ f31a3881-374d-4a0f-8d38-3ebaf735ea0f	fce07bd2-0abe-49a2-af26-7508b7b6aea0	4	2026
 
 
 --
--- Data for Name: refeicoes; Type: TABLE DATA; Schema: public; Owner: cardapio
+-- Data for Name: refeicoes; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.refeicoes (id, periodo, descricao, data, nome) FROM stdin;
-1	manha	Uma pausa leve para começar bem o turno.	2026-08-24	Lanche da manhã
-4	manha	Uma pausa leve para começar bem o turno.	2026-08-25	Lanche da manhã
-13	manha	Uma pausa leve para começar bem o turno.	2026-08-28	Lanche da manhã
-14	almoco	Refeição completa preparada para o dia de aula.	2026-08-28	Almoço
-15	tarde	Energia para finalizar as atividades.	2026-08-28	Lanche da tarde
-31	manha	Pão com carne moída ao molho e suco de fruta.	2026-08-06	Cachorro-quente
-32	almoco	Arroz, feijão, frango assado, salada e fruta.	2026-08-06	Arroz, feijão e frango
-33	tarde	Bolo caseiro acompanhado de vitamina de banana.	2026-08-06	Bolo com vitamina
-34	manha	Cuscuz de milho com ovos mexidos e café com leite.	2026-08-08	Cuscuz com ovos
-35	almoco	Macarrão ao molho de tomate com carne moída e legumes.	2026-08-08	Macarronada com carne
-36	tarde	Sanduíche de frango com salada e suco de acerola.	2026-08-08	Sanduíche natural
-2	almoco	Refeição completa preparada para o dia de aula.	2026-08-24	Almoço
-7	manha	Cuscuz com salsicha assada	2026-08-26	Cuscuz com salsicha
-8	almoco	Arroz, feijão e galinha assada	2026-08-26	Galinha assada
-9	tarde	Pão com ovo e vitamina	2026-08-26	Pão com ovo
-10	manha	arroz com caldo de frango	2026-08-27	risoto
-11	almoco	macarrão e galinha guisada	2026-08-27	galinha guisada
-12	tarde	frutas cortadas e recheio de leite condensado em um copo de plástico	2026-08-27	salada de frutas
-47	tarde	kkkkkkkkkkk	2026-08-25	Pizza de pernas de aranha seca ao molho.
-53	manha	testando	2026-09-18	TESTE BKP OLHA A DATA
-54	manha	Cuscuz quentinho com ovos mexidos e café com leite.	2026-09-21	Cuscuz com ovos
-55	almoco	Arroz branco, feijão carioca, filé de frango grelhado e salada de alface com tomate.	2026-09-21	Frango grelhado com arroz e feijão
-56	tarde	Bolo de cenoura caseiro acompanhado de suco de laranja natural.	2026-09-21	Bolo de cenoura e suco
-57	manha	Pão francês com queijo branco derretido e maçã fresca.	2026-09-22	Pão com queijo e fruta
-58	almoco	Arroz, feijão preto, carne moída refogada com cenoura e batata, acompanhada de farofa.	2026-09-22	Carne moída com legumes
-59	tarde	Vitamina cremosa de banana com aveia e biscoito integral.	2026-09-22	Vitamina de banana e biscoito
-60	manha	Iogurte natural batido com frutas e porção de granola crocante.	2026-09-23	Iogurte com granola
-61	almoco	Macarrão espaguete ao molho de tomate caseiro com carne bovina e queijo ralado.	2026-09-23	Macarronada à bolonhesa
-62	tarde	Mix de frutas da estação (mamão, melancia e banana) com suco de maracujá.	2026-09-23	Salada de frutas
-63	manha	Tapioca tradicional com queijo e manteiga acompanhada de chá mate gelado.	2026-09-24	Tapioca recheada
-64	almoco	Filé de peixe assado com ervas, purê de batatas cremoso, arroz e feijão.	2026-09-24	Peixe ao forno com purê
-65	tarde	Pão integral com pasta de frango desfiado, cenoura ralada e suco de uva.	2026-09-24	Sanduíche natural de frango
-66	manha	Pães de queijo artesanais assados na hora acompanhados de achocolatado.	2026-09-25	Pão de queijo quentinho
-67	almoco	Feijoada leve tradicional com carnes magras, arroz branco, couve refogada e fatias de laranja.	2026-09-25	Feijoada escolar
-68	tarde	Torta integral de banana com canela e suco de goiaba.	2026-09-25	Torta de banana com suco
-69	manha	Cuscuz nordestino quentinho servido com carne bovina desfiada e café com leite.	2026-09-28	Cuscuz com carne desfiada
-70	almoco	Strogonoff cremoso de frango, arroz branco soltinho, batata palha e salada de tomate.	2026-09-28	Strogonoff de frango com arroz
-71	tarde	Pão francês levemente tostado com requeijão cremoso e uma maçã fresca.	2026-09-28	Pão com requeijão e maçã
-72	manha	Mingau de aveia suave com um toque de canela e pedaços de banana.	2026-09-29	Mingau de aveia com canela
-73	almoco	Carne bovina cozida ao molho com mandioca macia, arroz branco e feijão carioca.	2026-09-29	Carne de panela com mandioca
-74	tarde	Fatia generosa de bolo de milho caseiro e suco integral de uva.	2026-09-29	Bolo de milho e suco de uva
-75	manha	Pão francês fresquinho prensado com presunto magro e queijo prato, servido com suco de laranja.	2026-09-30	Pão com presunto e queijo
-76	almoco	Escondidinho de purê de batata gratinado com recheio de carne moída bem temperada, arroz e salada.	2026-09-30	Escondidinho de carne moída
-77	tarde	Biscoitos de polvilho crocantes acompanhados de iogurte de morango.	2026-09-30	Biscoito caseiro com iogurte
-78	manha	Tapioca recheada com queijo coalho na chapa e café fresco.	2026-10-01	Tapioca de queijo coalho
-79	almoco	Iscas de peito de frango aceboladas, feijão tropeiro leve, arroz branco e couve fatiada.	2026-10-01	Iscas de frango aceboladas
-80	tarde	Frutas frescas picadas (abacaxi, melão e uva) salpicadas com granola e suco de goiaba.	2026-10-01	Salada de frutas com granola
-81	manha	Pães de queijo mineiros assados na hora servidos com suco natural de maracujá.	2026-10-02	Pão de queijo e suco de maracujá
-82	almoco	Lasanha com massa fresca, molho bolonhesa artesanal, queijo mussarela e salada verde.	2026-10-02	Lasanha à bolonhesa escolar
-83	tarde	Vitamina cremosa de abacate batida com leite e torradas integrais crocantes.	2026-10-02	Vitamina de abacate e torrada
-84	manha	Cuscuz de milho tradicional com queijo derretido por cima e café com leite adoçado.	2026-10-05	Cuscuz com queijo e café
-85	almoco	Sobrecoxa de frango assada com batata e cenoura, arroz soltinho, feijão preto e salada de repolho.	2026-10-05	Frango assado com legumes
-86	tarde	Bolo de cacau caseiro fofinho acompanhado de um copo de leite frio.	2026-10-05	Bolo de chocolate e leite
-87	manha	Pão de forma integral com patê suave de atum com ricota e chá de camomila gelado.	2026-10-06	Pão com pasta de atum
-88	almoco	Almôndegas bovinas suculentas ao molho de tomate fresco, purê de batatas e arroz integral.	2026-10-06	Almôndegas ao sugo com purê
-89	tarde	Pedaços refrescantes de melancia, mamão e banana com suco de acerola.	2026-10-06	Mix de frutas da estação
-90	manha	Tigela de iogurte natural batido com um toque de mel, sementes de chia e morangos picados.	2026-10-07	Iogurte natural com mel e chia
-91	almoco	Baião de dois tradicional com queijo coalho e feijão verde, servido com carne de sol acebolada e vinagrete.	2026-10-07	Baião de dois com carne de sol
-92	tarde	Pão francês quentinho recheado com queijo minas frescal e suco de caju.	2026-10-07	Sanduíche de queijo branco
-93	manha	Crepioca leve recheada com frango desfiado temperado com ervas finas e café com leite.	2026-10-08	Crepioca de frango
-94	almoco	Cubos de carne macia cozidos com vagem e cenoura, arroz branco, feijão carioca e farofa crocante.	2026-10-08	Picadinho bovino com legumes
-95	tarde	Bolo artesanal de laranja com raspas e suco de abacaxi com hortelã.	2026-10-08	Bolo de laranja e suco
-96	manha	Pão tostado na manteiga com ovos mexidos cremosos e achocolatado quente.	2026-10-09	Pão na chapa com ovos mexidos
-97	almoco	Filé de tilápia grelhada servida com pirão de peixe saboroso, arroz branco e salada de alface e pepino.	2026-10-09	Filé de peixe grelhado com pirão
-98	tarde	Fatia de torta integral de maçã com canela e vitamina refrescante de morango.	2026-10-09	Torta de maçã e vitamina
+COPY public.refeicoes (id, periodo, descricao, data, nome, imagem_url) FROM stdin;
+1	manha	Uma pausa leve para começar bem o turno.	2026-08-24	Lanche da manhã	\N
+4	manha	Uma pausa leve para começar bem o turno.	2026-08-25	Lanche da manhã	\N
+14	almoco	Refeição completa preparada para o dia de aula.	2026-08-28	Almoço	\N
+15	tarde	Energia para finalizar as atividades.	2026-08-28	Lanche da tarde	\N
+31	manha	Pão com carne moída ao molho e suco de fruta.	2026-08-06	Cachorro-quente	\N
+32	almoco	Arroz, feijão, frango assado, salada e fruta.	2026-08-06	Arroz, feijão e frango	\N
+33	tarde	Bolo caseiro acompanhado de vitamina de banana.	2026-08-06	Bolo com vitamina	\N
+34	manha	Cuscuz de milho com ovos mexidos e café com leite.	2026-08-08	Cuscuz com ovos	\N
+35	almoco	Macarrão ao molho de tomate com carne moída e legumes.	2026-08-08	Macarronada com carne	\N
+36	tarde	Sanduíche de frango com salada e suco de acerola.	2026-08-08	Sanduíche natural	\N
+2	almoco	Refeição completa preparada para o dia de aula.	2026-08-24	Almoço	\N
+7	manha	Cuscuz com salsicha assada	2026-08-26	Cuscuz com salsicha	\N
+8	almoco	Arroz, feijão e galinha assada	2026-08-26	Galinha assada	\N
+9	tarde	Pão com ovo e vitamina	2026-08-26	Pão com ovo	\N
+10	manha	arroz com caldo de frango	2026-08-27	risoto	\N
+11	almoco	macarrão e galinha guisada	2026-08-27	galinha guisada	\N
+12	tarde	frutas cortadas e recheio de leite condensado em um copo de plástico	2026-08-27	salada de frutas	\N
+47	tarde	kkkkkkkkkkk	2026-08-25	Pizza de pernas de aranha seca ao molho.	\N
+53	manha	testando	2026-09-18	TESTE BKP OLHA A DATA	\N
+54	manha	Cuscuz quentinho com ovos mexidos e café com leite.	2026-09-21	Cuscuz com ovos	\N
+56	tarde	Bolo de cenoura caseiro acompanhado de suco de laranja natural.	2026-09-21	Bolo de cenoura e suco	\N
+57	manha	Pão francês com queijo branco derretido e maçã fresca.	2026-09-22	Pão com queijo e fruta	\N
+59	tarde	Vitamina cremosa de banana com aveia e biscoito integral.	2026-09-22	Vitamina de banana e biscoito	\N
+60	manha	Iogurte natural batido com frutas e porção de granola crocante.	2026-09-23	Iogurte com granola	\N
+61	almoco	Macarrão espaguete ao molho de tomate caseiro com carne bovina e queijo ralado.	2026-09-23	Macarronada à bolonhesa	\N
+62	tarde	Mix de frutas da estação (mamão, melancia e banana) com suco de maracujá.	2026-09-23	Salada de frutas	\N
+63	manha	Tapioca tradicional com queijo e manteiga acompanhada de chá mate gelado.	2026-09-24	Tapioca recheada	\N
+64	almoco	Filé de peixe assado com ervas, purê de batatas cremoso, arroz e feijão.	2026-09-24	Peixe ao forno com purê	\N
+65	tarde	Pão integral com pasta de frango desfiado, cenoura ralada e suco de uva.	2026-09-24	Sanduíche natural de frango	\N
+66	manha	Pães de queijo artesanais assados na hora acompanhados de achocolatado.	2026-09-25	Pão de queijo quentinho	\N
+67	almoco	Feijoada leve tradicional com carnes magras, arroz branco, couve refogada e fatias de laranja.	2026-09-25	Feijoada escolar	\N
+68	tarde	Torta integral de banana com canela e suco de goiaba.	2026-09-25	Torta de banana com suco	\N
+69	manha	Cuscuz nordestino quentinho servido com carne bovina desfiada e café com leite.	2026-09-28	Cuscuz com carne desfiada	\N
+70	almoco	Strogonoff cremoso de frango, arroz branco soltinho, batata palha e salada de tomate.	2026-09-28	Strogonoff de frango com arroz	\N
+71	tarde	Pão francês levemente tostado com requeijão cremoso e uma maçã fresca.	2026-09-28	Pão com requeijão e maçã	\N
+72	manha	Mingau de aveia suave com um toque de canela e pedaços de banana.	2026-09-29	Mingau de aveia com canela	\N
+73	almoco	Carne bovina cozida ao molho com mandioca macia, arroz branco e feijão carioca.	2026-09-29	Carne de panela com mandioca	\N
+74	tarde	Fatia generosa de bolo de milho caseiro e suco integral de uva.	2026-09-29	Bolo de milho e suco de uva	\N
+75	manha	Pão francês fresquinho prensado com presunto magro e queijo prato, servido com suco de laranja.	2026-09-30	Pão com presunto e queijo	\N
+76	almoco	Escondidinho de purê de batata gratinado com recheio de carne moída bem temperada, arroz e salada.	2026-09-30	Escondidinho de carne moída	\N
+77	tarde	Biscoitos de polvilho crocantes acompanhados de iogurte de morango.	2026-09-30	Biscoito caseiro com iogurte	\N
+78	manha	Tapioca recheada com queijo coalho na chapa e café fresco.	2026-10-01	Tapioca de queijo coalho	\N
+79	almoco	Iscas de peito de frango aceboladas, feijão tropeiro leve, arroz branco e couve fatiada.	2026-10-01	Iscas de frango aceboladas	\N
+80	tarde	Frutas frescas picadas (abacaxi, melão e uva) salpicadas com granola e suco de goiaba.	2026-10-01	Salada de frutas com granola	\N
+81	manha	Pães de queijo mineiros assados na hora servidos com suco natural de maracujá.	2026-10-02	Pão de queijo e suco de maracujá	\N
+82	almoco	Lasanha com massa fresca, molho bolonhesa artesanal, queijo mussarela e salada verde.	2026-10-02	Lasanha à bolonhesa escolar	\N
+83	tarde	Vitamina cremosa de abacate batida com leite e torradas integrais crocantes.	2026-10-02	Vitamina de abacate e torrada	\N
+84	manha	Cuscuz de milho tradicional com queijo derretido por cima e café com leite adoçado.	2026-10-05	Cuscuz com queijo e café	\N
+85	almoco	Sobrecoxa de frango assada com batata e cenoura, arroz soltinho, feijão preto e salada de repolho.	2026-10-05	Frango assado com legumes	\N
+86	tarde	Bolo de cacau caseiro fofinho acompanhado de um copo de leite frio.	2026-10-05	Bolo de chocolate e leite	\N
+87	manha	Pão de forma integral com patê suave de atum com ricota e chá de camomila gelado.	2026-10-06	Pão com pasta de atum	\N
+88	almoco	Almôndegas bovinas suculentas ao molho de tomate fresco, purê de batatas e arroz integral.	2026-10-06	Almôndegas ao sugo com purê	\N
+89	tarde	Pedaços refrescantes de melancia, mamão e banana com suco de acerola.	2026-10-06	Mix de frutas da estação	\N
+90	manha	Tigela de iogurte natural batido com um toque de mel, sementes de chia e morangos picados.	2026-10-07	Iogurte natural com mel e chia	\N
+91	almoco	Baião de dois tradicional com queijo coalho e feijão verde, servido com carne de sol acebolada e vinagrete.	2026-10-07	Baião de dois com carne de sol	\N
+92	tarde	Pão francês quentinho recheado com queijo minas frescal e suco de caju.	2026-10-07	Sanduíche de queijo branco	\N
+93	manha	Crepioca leve recheada com frango desfiado temperado com ervas finas e café com leite.	2026-10-08	Crepioca de frango	\N
+58	almoco	Arroz, feijão preto, carne moída refogada com cenoura e batata, acompanhada de farofa.	2026-09-22	Carne moída com legumes	\N
+94	almoco	Cubos de carne macia cozidos com vagem e cenoura, arroz branco, feijão carioca e farofa crocante.	2026-10-08	Picadinho bovino com legumes	\N
+95	tarde	Bolo artesanal de laranja com raspas e suco de abacaxi com hortelã.	2026-10-08	Bolo de laranja e suco	\N
+96	manha	Pão tostado na manteiga com ovos mexidos cremosos e achocolatado quente.	2026-10-09	Pão na chapa com ovos mexidos	\N
+97	almoco	Filé de tilápia grelhada servida com pirão de peixe saboroso, arroz branco e salada de alface e pepino.	2026-10-09	Filé de peixe grelhado com pirão	\N
+98	tarde	Fatia de torta integral de maçã com canela e vitamina refrescante de morango.	2026-10-09	Torta de maçã e vitamina	\N
+13	almoco	Uma pausa leve para começar bem o turno.	2026-09-18	Lanche da manhã	\N
+55	almoco	Arroz branco, feijão carioca, filé de frango grelhado e salada de alface com tomate.	2026-09-21	Frango grelhado com arroz e feijão	\N
 \.
 
 
 --
--- Data for Name: schema_migrations; Type: TABLE DATA; Schema: public; Owner: cardapio
+-- Data for Name: schema_migrations; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.schema_migrations (name, applied_at) FROM stdin;
@@ -278,11 +283,21 @@ COPY public.schema_migrations (name, applied_at) FROM stdin;
 006_horarios_fixos_refeicoes.sql	2026-08-24 11:36:08.535402-03
 007_refeicoes_por_data.sql	2026-08-24 11:36:08.544774-03
 008_massa_refeicoes_agosto_2026.sql	2026-08-24 11:36:08.562327-03
+009_adicionar_imagem_url_refeicoes.sql	2026-09-21 11:39:37.541403-03
+010_solicitacoes_recuperacao_senha.sql	2026-09-21 11:49:42.673387-03
 \.
 
 
 --
--- Data for Name: usuarios; Type: TABLE DATA; Schema: public; Owner: cardapio
+-- Data for Name: solicitacoes_recuperacao_senha; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.solicitacoes_recuperacao_senha (id, usuario_id, senha_hash, solicitado_em) FROM stdin;
+\.
+
+
+--
+-- Data for Name: usuarios; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.usuarios (id, nome, cpf, telefone, email, senha_hash, tipo, criado_em) FROM stdin;
@@ -304,14 +319,14 @@ a638b2d9-b73d-4d0e-aa30-77654884290c	Ellen Vitória	00000000000	(11) 11111-1111	
 
 
 --
--- Name: refeicoes_id_seq; Type: SEQUENCE SET; Schema: public; Owner: cardapio
+-- Name: refeicoes_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.refeicoes_id_seq', 98, true);
+SELECT pg_catalog.setval('public.refeicoes_id_seq', 99, true);
 
 
 --
--- Name: avaliacoes avaliacoes_pkey; Type: CONSTRAINT; Schema: public; Owner: cardapio
+-- Name: avaliacoes avaliacoes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.avaliacoes
@@ -319,7 +334,7 @@ ALTER TABLE ONLY public.avaliacoes
 
 
 --
--- Name: avaliacoes avaliacoes_usuario_id_refeicao_id_servido_em_key; Type: CONSTRAINT; Schema: public; Owner: cardapio
+-- Name: avaliacoes avaliacoes_usuario_id_refeicao_id_servido_em_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.avaliacoes
@@ -327,7 +342,7 @@ ALTER TABLE ONLY public.avaliacoes
 
 
 --
--- Name: refeicoes refeicoes_data_periodo_key; Type: CONSTRAINT; Schema: public; Owner: cardapio
+-- Name: refeicoes refeicoes_data_periodo_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.refeicoes
@@ -335,7 +350,7 @@ ALTER TABLE ONLY public.refeicoes
 
 
 --
--- Name: refeicoes refeicoes_pkey; Type: CONSTRAINT; Schema: public; Owner: cardapio
+-- Name: refeicoes refeicoes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.refeicoes
@@ -343,7 +358,7 @@ ALTER TABLE ONLY public.refeicoes
 
 
 --
--- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: cardapio
+-- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.schema_migrations
@@ -351,7 +366,23 @@ ALTER TABLE ONLY public.schema_migrations
 
 
 --
--- Name: usuarios usuarios_cpf_key; Type: CONSTRAINT; Schema: public; Owner: cardapio
+-- Name: solicitacoes_recuperacao_senha solicitacoes_recuperacao_senha_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.solicitacoes_recuperacao_senha
+    ADD CONSTRAINT solicitacoes_recuperacao_senha_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: solicitacoes_recuperacao_senha solicitacoes_recuperacao_senha_usuario_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.solicitacoes_recuperacao_senha
+    ADD CONSTRAINT solicitacoes_recuperacao_senha_usuario_id_key UNIQUE (usuario_id);
+
+
+--
+-- Name: usuarios usuarios_cpf_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.usuarios
@@ -359,7 +390,7 @@ ALTER TABLE ONLY public.usuarios
 
 
 --
--- Name: usuarios usuarios_email_key; Type: CONSTRAINT; Schema: public; Owner: cardapio
+-- Name: usuarios usuarios_email_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.usuarios
@@ -367,7 +398,7 @@ ALTER TABLE ONLY public.usuarios
 
 
 --
--- Name: usuarios usuarios_pkey; Type: CONSTRAINT; Schema: public; Owner: cardapio
+-- Name: usuarios usuarios_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.usuarios
@@ -375,42 +406,49 @@ ALTER TABLE ONLY public.usuarios
 
 
 --
--- Name: avaliacoes_servido_em_idx; Type: INDEX; Schema: public; Owner: cardapio
+-- Name: avaliacoes_servido_em_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX avaliacoes_servido_em_idx ON public.avaliacoes USING btree (servido_em);
 
 
 --
--- Name: avaliacoes_usuario_id_idx; Type: INDEX; Schema: public; Owner: cardapio
+-- Name: avaliacoes_usuario_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX avaliacoes_usuario_id_idx ON public.avaliacoes USING btree (usuario_id);
 
 
 --
--- Name: refeicoes_data_idx; Type: INDEX; Schema: public; Owner: cardapio
+-- Name: refeicoes_data_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX refeicoes_data_idx ON public.refeicoes USING btree (data);
 
 
 --
--- Name: refeicoes_nome_idx; Type: INDEX; Schema: public; Owner: cardapio
+-- Name: refeicoes_nome_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX refeicoes_nome_idx ON public.refeicoes USING btree (nome);
 
 
 --
--- Name: usuarios_email_unico_idx; Type: INDEX; Schema: public; Owner: cardapio
+-- Name: solicitacoes_recuperacao_senha_data_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX solicitacoes_recuperacao_senha_data_idx ON public.solicitacoes_recuperacao_senha USING btree (solicitado_em DESC);
+
+
+--
+-- Name: usuarios_email_unico_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX usuarios_email_unico_idx ON public.usuarios USING btree (email);
 
 
 --
--- Name: avaliacoes avaliacoes_refeicao_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: cardapio
+-- Name: avaliacoes avaliacoes_refeicao_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.avaliacoes
@@ -418,7 +456,7 @@ ALTER TABLE ONLY public.avaliacoes
 
 
 --
--- Name: avaliacoes avaliacoes_usuario_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: cardapio
+-- Name: avaliacoes avaliacoes_usuario_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.avaliacoes
@@ -426,8 +464,16 @@ ALTER TABLE ONLY public.avaliacoes
 
 
 --
+-- Name: solicitacoes_recuperacao_senha solicitacoes_recuperacao_senha_usuario_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.solicitacoes_recuperacao_senha
+    ADD CONSTRAINT solicitacoes_recuperacao_senha_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id) ON DELETE CASCADE;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict a3UOdNcl2eAxrU84ehmOIv1DJwtPvkefoiazj3OrmMnfPuR31wgxwt1mMBbvH9D
+\unrestrict pByXTTAybcbHHvmkJA6pCtZa3hfZEahGweAHm3czhFjBaxqHlcIQX3dXt5v4rCk
 
