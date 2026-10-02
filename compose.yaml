@@ -1,3 +1,5 @@
+name: savorsync
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -34,3 +36,4 @@ services:
 
 volumes:
   cardapio_postgres_data:
+    name: backend_cardapio_postgres_data
